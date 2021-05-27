@@ -24,6 +24,9 @@ from samplers import RASampler
 import models
 import utils
 
+import memory_saving as ms
+import memory_saving.models
+
 
 def get_args_parser():
     parser = argparse.ArgumentParser('DeiT training and evaluation script', add_help=False)
@@ -246,6 +249,13 @@ def main(args):
         drop_path_rate=args.drop_path,
         drop_block_rate=None,
     )
+
+    for m in model.modules():
+        if hasattr(m, 'memory_saving'):
+            m.memory_saving = True
+        if hasattr(m, 'level'):
+            m.level = 256
+    print(f"verbose model: {model}")
 
     if args.finetune:
         if args.finetune.startswith('https'):
