@@ -26,6 +26,7 @@ import utils
 
 import memory_saving as ms
 import memory_saving.models
+import tools
 
 
 def get_args_parser():
@@ -360,7 +361,9 @@ def main(args):
                 args.resume, map_location='cpu', check_hash=True)
         else:
             checkpoint = torch.load(args.resume, map_location='cpu')
-        model_without_ddp.load_state_dict(checkpoint['model'])
+        #model_without_ddp.load_state_dict(checkpoint['model'])
+        setattr(args, 'pretrained', args.resume)
+        tools.load_pretrained(model_without_ddp, args)
         if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
             optimizer.load_state_dict(checkpoint['optimizer'])
             lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
