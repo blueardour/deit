@@ -168,6 +168,10 @@ def get_args_parser():
     parser.add_argument('--world_size', default=1, type=int,
                         help='number of distributed processes')
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
+
+    # memory_saving
+    parser.add_argument('--memory_saving', '-ms', action='store_true', help='Enable memory_saving')
+    parser.add_argument('--ms_level', default=256, type=int, help='memory_saving quantization level')
     return parser
 
 
@@ -252,9 +256,9 @@ def main(args):
 
     for m in model.modules():
         if hasattr(m, 'memory_saving'):
-            m.memory_saving = True
+            m.memory_saving = args.memory_saving
         if hasattr(m, 'level'):
-            m.level = 256
+            m.level = args.ms_level
     print(f"verbose model: {model}")
 
     if args.finetune:
