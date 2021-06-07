@@ -252,10 +252,11 @@ def main(args):
     )
 
     for m in model.modules():
-        if hasattr(m, 'memory_saving'):
-            m.memory_saving = True
-        if hasattr(m, 'level'):
-            m.level = 256
+        #if hasattr(m, 'memory_saving'):
+        #    m.memory_saving = True
+        #if hasattr(m, 'level'):
+        #    m.level = 256
+        pass
     print(f"verbose model: {model}")
 
     if args.finetune:
