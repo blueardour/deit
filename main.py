@@ -27,6 +27,7 @@ import utils
 import memory_saving as ms
 import memory_saving.models
 import tools
+import os
 
 
 def get_args_parser():
@@ -171,8 +172,7 @@ def get_args_parser():
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
 
     # memory_saving
-    parser.add_argument('--memory_saving', '-ms', action='store_true', help='Enable memory_saving')
-    parser.add_argument('--ms_level', default=256, type=int, help='memory_saving quantization level')
+    parser.add_argument('--ms_policy', default='', type=str, help='memory_saving quantization policy file')
     return parser
 
 
@@ -255,11 +255,8 @@ def main(args):
         drop_block_rate=None,
     )
 
-    for m in model.modules():
-        if hasattr(m, 'memory_saving'):
-            m.memory_saving = args.memory_saving
-        if hasattr(m, 'level'):
-            m.level = args.ms_level
+    if os.path.isfile(args.ms_policy):
+        ms.policy.deploy_on_init(model, args.ms_policy)
     print(f"verbose model: {model}")
 
     if args.finetune:
