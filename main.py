@@ -255,8 +255,7 @@ def main(args):
         drop_block_rate=None,
     )
 
-    if os.path.isfile(args.ms_policy):
-        ms.policy.deploy_on_init(model, args.ms_policy)
+    ms.policy.deploy_on_init(model, args.ms_policy)
     print(f"verbose model: {model}")
 
     if args.finetune:
