@@ -24,6 +24,11 @@ from samplers import RASampler
 import models
 import utils
 
+import memory_saving as ms
+import memory_saving.models
+import tools
+import os
+
 
 def get_args_parser():
     parser = argparse.ArgumentParser('DeiT training and evaluation script', add_help=False)
@@ -165,6 +170,9 @@ def get_args_parser():
     parser.add_argument('--world_size', default=1, type=int,
                         help='number of distributed processes')
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
+
+    # memory_saving
+    parser.add_argument('--ms_policy', default='', type=str, help='memory_saving quantization policy file')
     return parser
 
 
@@ -246,6 +254,10 @@ def main(args):
         drop_path_rate=args.drop_path,
         drop_block_rate=None,
     )
+
+    if os.path.isfile(args.ms_policy):
+        ms.policy.deploy_on_init(model, args.ms_policy)
+    print(f"verbose model: {model}")
 
     if args.finetune:
         if args.finetune.startswith('https'):
@@ -350,7 +362,9 @@ def main(args):
                 args.resume, map_location='cpu', check_hash=True)
         else:
             checkpoint = torch.load(args.resume, map_location='cpu')
-        model_without_ddp.load_state_dict(checkpoint['model'])
+        #model_without_ddp.load_state_dict(checkpoint['model'])
+        setattr(args, 'pretrained', args.resume)
+        tools.load_pretrained(model_without_ddp, args)
         if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
             optimizer.load_state_dict(checkpoint['optimizer'])
             lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
