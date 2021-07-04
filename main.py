@@ -28,6 +28,7 @@ import memory_saving as ms
 import memory_saving.models
 import tools
 import os
+import logging
 
 
 def get_args_parser():
@@ -149,7 +150,7 @@ def get_args_parser():
                         choices=['kingdom', 'phylum', 'class', 'order', 'supercategory', 'family', 'genus', 'name'],
                         type=str, help='semantic granularity')
 
-    parser.add_argument('--output_dir', default='',
+    parser.add_argument('--output_dir', default='exp',
                         help='path where to save, empty for no saving')
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
@@ -179,7 +180,15 @@ def get_args_parser():
 def main(args):
     utils.init_distributed_mode(args)
 
-    print(args)
+    case = "{}-{}-{}".format(args.model, args.data_set, args.batch_size)
+    args.output_dir = os.path.join(args.output_dir, case)
+    verbose = print
+    if utils.get_rank() == 0:
+        log_suffix = "{}log".format("eval-" if args.eval else "")
+        tools.check_folder(args.output_dir)
+        tools.setup_logging(os.path.join(args.output_dir, log_suffix + '.txt'), resume=args.resume != '')
+        verbose = logging.info
+    verbose(args)
 
     if args.distillation_type != 'none' and args.finetune and not args.eval:
         raise NotImplementedError("Finetuning with distillation not yet supported")
@@ -210,7 +219,7 @@ def main(args):
             )
         if args.dist_eval:
             if len(dataset_val) % num_tasks != 0:
-                print('Warning: Enabling distributed evaluation with an eval dataset not divisible by process number. '
+                verbose('Warning: Enabling distributed evaluation with an eval dataset not divisible by process number. '
                       'This will slightly alter validation results as extra duplicate entries are added to achieve '
                       'equal num of samples per-process.')
             sampler_val = torch.utils.data.DistributedSampler(
@@ -245,7 +254,7 @@ def main(args):
             prob=args.mixup_prob, switch_prob=args.mixup_switch_prob, mode=args.mixup_mode,
             label_smoothing=args.smoothing, num_classes=args.nb_classes)
 
-    print(f"Creating model: {args.model}")
+    verbose(f"Creating model: {args.model}")
     model = create_model(
         args.model,
         pretrained=False,
@@ -255,8 +264,8 @@ def main(args):
         drop_block_rate=None,
     )
 
-    ms.policy.deploy_on_init(model, args.ms_policy)
-    print(f"verbose model: {model}")
+    ms.policy.deploy_on_init(model, args.ms_policy, verbose=verbose)
+    verbose(f"verbose model: {model}")
 
     if args.finetune:
         if args.finetune.startswith('https'):
@@ -269,7 +278,7 @@ def main(args):
         state_dict = model.state_dict()
         for k in ['head.weight', 'head.bias', 'head_dist.weight', 'head_dist.bias']:
             if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
-                print(f"Removing key {k} from pretrained checkpoint")
+                verbose(f"Removing key {k} from pretrained checkpoint")
                 del checkpoint_model[k]
 
         # interpolate position embedding
@@ -310,7 +319,7 @@ def main(args):
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print('number of params:', n_parameters)
+    verbose(f'number of params: {n_parameters}')
 
     linear_scaled_lr = args.lr * args.batch_size * utils.get_world_size() / 512.0
     args.lr = linear_scaled_lr
@@ -332,7 +341,7 @@ def main(args):
     teacher_model = None
     if args.distillation_type != 'none':
         assert args.teacher_path, 'need to specify teacher-path when using distillation'
-        print(f"Creating teacher model: {args.teacher_model}")
+        verbose(f"Creating teacher model: {args.teacher_model}")
         teacher_model = create_model(
             args.teacher_model,
             pretrained=False,
@@ -374,11 +383,11 @@ def main(args):
                 loss_scaler.load_state_dict(checkpoint['scaler'])
 
     if args.eval:
-        test_stats = evaluate(data_loader_val, model, device)
-        print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
+        test_stats = evaluate(data_loader_val, model, device, verbose=verbose)
+        verbose(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
         return
 
-    print(f"Start training for {args.epochs} epochs")
+    verbose(f"Start training for {args.epochs} epochs")
     start_time = time.time()
     max_accuracy = 0.0
     for epoch in range(args.start_epoch, args.epochs):
@@ -389,7 +398,8 @@ def main(args):
             model, criterion, data_loader_train,
             optimizer, device, epoch, loss_scaler,
             args.clip_grad, model_ema, mixup_fn,
-            set_training_mode=args.finetune == ''  # keep in eval mode during finetuning
+            set_training_mode=args.finetune == '',  # keep in eval mode during finetuning
+            verbose = verbose,
         )
 
         lr_scheduler.step(epoch)
@@ -406,10 +416,10 @@ def main(args):
                     'args': args,
                 }, checkpoint_path)
 
-        test_stats = evaluate(data_loader_val, model, device)
-        print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
+        test_stats = evaluate(data_loader_val, model, device, verbose=verbose)
+        verbose(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
         max_accuracy = max(max_accuracy, test_stats["acc1"])
-        print(f'Max accuracy: {max_accuracy:.2f}%')
+        verbose(f'Max accuracy: {max_accuracy:.2f}%')
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                      **{f'test_{k}': v for k, v in test_stats.items()},
@@ -422,7 +432,7 @@ def main(args):
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    print('Training time {}'.format(total_time_str))
+    verbose('Training time {}'.format(total_time_str))
 
 
 if __name__ == '__main__':
