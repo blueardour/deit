@@ -264,7 +264,7 @@ def main(args):
         drop_block_rate=None,
     )
 
-    ms.policy.deploy_on_init(model, args.ms_policy, verbose=verbose)
+    ms.policy.deploy_on_init(model, args.ms_policy, verbose=verbose, override_verbose=True)
     verbose(f"verbose model: {model}")
 
     if args.finetune:
