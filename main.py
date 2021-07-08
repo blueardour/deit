@@ -29,6 +29,7 @@ import memory_saving.models
 import tools
 import os
 import logging
+from datetime import datetime
 
 
 def get_args_parser():
@@ -181,7 +182,7 @@ def main(args):
     utils.init_distributed_mode(args)
 
     #case = "{}-{}-{}".format(args.model, args.data_set, args.batch_size)
-    #args.output_dir = os.path.join(args.output_dir, case)
+    args.output_dir = os.path.join(args.output_dir, datetime.today().strftime('%Y-%m-%d'))
     verbose = print
     if utils.get_rank() == 0:
         log_suffix = "{}log".format("eval-" if args.eval else "")
