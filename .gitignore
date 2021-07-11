@@ -11,3 +11,7 @@ log
 *.o
 *.pyc
 .python-version
+
+train.sh
+config.*
+
