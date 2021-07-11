@@ -3,14 +3,14 @@ on fc:
   by_index: all
   enable: True
   level: 256
-  stable: 1
+  stable: 5
   correlate: 0.75
 
 on matmul:
   by_index: all
   enable: True
   level: 256
-  stable: 1
+  stable: 5
   correlate: 0.75
 
   by_index: 1 3 5 7 9 11 13 15 17 19 21 23
@@ -21,20 +21,20 @@ on gelu:
   by_index: all
   enable: True
   level: 256
-  stable: 1
+  stable: 5
   correlate: 0.75
 
 on layernorm:
   by_index: all
   enable: True
   level: 256
-  stable: 1
+  stable: 5
   correlate: 0.75
 
 on softmax:
   by_index: all
   enable: True
   level: 256
-  stable: 1
+  stable: 5
   correlate: 0.75
 
